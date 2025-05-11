@@ -29,7 +29,7 @@
         <input type="text" id="adminUser" placeholder="Usuario (admin)" value="admin" class="mb-4">
         <input type="password" id="adminPass" placeholder="Contraseña (password)" value="password" class="mb-4">
         <button id="loginAdminBtn" class="btn w-full mb-2">Ingresar</button>
-        <button class="btn btn-secondary w-full" onclick="showScreen('homeScreen')">Volver</button>
+        <button class="btn btn-secondary w-full" onclick="showScreen('home')">Volver</button>
     </div>
 
     <div id="adminPanelScreen" class="screen">
@@ -62,7 +62,7 @@
         </div>
 
         <div id="adminRanking" class="mt-6">
-            <h3 class="text-xl font-medium mb-3">Ranking Actual:</h3>
+            <h3 class="text-xl font-medium mb-3">Ranking Actual (Admin):</h3>
             <ul id="rankingListAdmin" class="max-h-60 overflow-y-auto">
                 <li class="text-gray-500">El ranking aparecerá aquí.</li>
             </ul>
@@ -75,7 +75,7 @@
         <input type="text" id="playerGameCode" placeholder="Código de Juego" class="mb-4">
         <input type="text" id="playerName" placeholder="Tu Nombre/Alias" class="mb-4">
         <button id="submitJoinGameBtn" class="btn w-full mb-2">Unirse</button>
-        <button class="btn btn-secondary w-full" onclick="showScreen('homeScreen')">Volver</button>
+        <button class="btn btn-secondary w-full" onclick="showScreen('home')">Volver</button>
     </div>
 
     <div id="playerWaitingRoomScreen" class="screen">
@@ -96,11 +96,18 @@
             <i class="fas fa-hand-pointer mr-3"></i>¡PRESIONA!
         </button>
         <p id="playerFeedback" class="mt-4 text-lg font-medium"></p>
-        <div id="playerRankingDisplay" class="mt-6">
-             <h3 class="text-xl font-medium mb-3">Tu Puntuación (<span id="currentPlayerNameDisplay">Jugador</span>):</h3>
+        
+        <div id="playerScoreDisplay" class="mt-6"> <h3 class="text-xl font-medium mb-3">Tu Puntuación (<span id="currentPlayerNameDisplay">Jugador</span>):</h3>
              <p id="playerCurrentScore" class="text-2xl font-bold text-blue-600">0 puntos</p>
         </div>
-    </div>
+
+        <div id="playerRoundEndRankingSection" class="mt-6 hidden">
+            <h3 class="text-xl font-medium mb-3 text-center">Ranking General</h3>
+            <ul id="playerRoundEndRankingList" class="max-h-48 overflow-y-auto bg-gray-50 p-3 rounded-md shadow-inner">
+                <li class="text-gray-400 italic">El ranking aparecerá al final de la ronda.</li>
+            </ul>
+        </div>
+        </div>
 
     <script src="js/client.js"></script>
 </body>

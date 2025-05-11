@@ -1,6 +1,8 @@
 // frontend/js/client.js
 
 // Conexión con el servidor Socket.IO
+// CAMBIA 'localhost' POR LA DIRECCIÓN IP LOCAL DE TU COMPUTADORA SI PRUEBAS EN RED LOCAL
+// Ejemplo: const socket = io('http://192.168.1.105:3000');
 const socket = io('http://192.168.0.178:3000');
 
 // Estado del cliente
@@ -56,23 +58,27 @@ const playerCurrentScoreEl = document.getElementById('playerCurrentScore');
 const playerGameScreenTitleEl = document.getElementById('playerGameScreenTitle');
 const submitJoinGameBtn = document.getElementById('submitJoinGameBtn');
 
+// Nuevos elementos para el ranking del jugador al final de la ronda
+const playerRoundEndRankingSectionEl = document.getElementById('playerRoundEndRankingSection');
+const playerRoundEndRankingListEl = document.getElementById('playerRoundEndRankingList');
+
 const messageBoxEl = document.getElementById('messageBox');
 
 // --- Utilidades ---
-function showScreen(screenKey) { // Cambiado 'screenName' a 'screenKey' para claridad
+function showScreen(screenKey) {
     Object.values(screens).forEach(screen => {
         if(screen) screen.classList.remove('active');
     });
     if (screens[screenKey]) {
         screens[screenKey].classList.add('active');
-        // Lógica adicional para habilitar/deshabilitar botones específicos de la pantalla
+        // Habilitar/deshabilitar botones según la pantalla y el estado de conexión
         if (screenKey === 'adminLogin' && loginAdminBtn) {
             loginAdminBtn.disabled = !socket.connected;
         } else if (screenKey === 'playerJoin' && submitJoinGameBtn) {
             submitJoinGameBtn.disabled = !socket.connected;
         }
     } else {
-        console.error(`Screen ${screenKey} not found in screens object.`);
+        console.error(`Screen key "${screenKey}" not found in screens object.`);
     }
 }
 
@@ -128,6 +134,8 @@ function resetPlayerUI() {
     }
     if (playerGameCodeEl) playerGameCodeEl.value = '';
     if (playerNameEl) playerNameEl.value = '';
+    if (playerRoundEndRankingSectionEl) playerRoundEndRankingSectionEl.classList.add('hidden');
+    if (playerRoundEndRankingListEl) playerRoundEndRankingListEl.innerHTML = '<li class="text-gray-400 italic">El ranking aparecerá al final de la ronda.</li>';
 }
 
 
@@ -135,7 +143,7 @@ function resetPlayerUI() {
 if (adminAccessBtn) {
     adminAccessBtn.addEventListener('click', () => {
         if (socket.connected) {
-            showScreen('adminLogin'); // CORREGIDO
+            showScreen('adminLogin');
         } else {
             showMessage('No estás conectado al servidor. Intenta recargar.', 3000, true);
         }
@@ -149,7 +157,7 @@ if (loginAdminBtn) {
         if (user === 'admin' && pass === 'password') {
             clientContext.adminName = user;
             if (adminNameDisplayEl) adminNameDisplayEl.textContent = clientContext.adminName;
-            showScreen('adminPanel'); // CORREGIDO
+            showScreen('adminPanel');
             showMessage('Login de administrador exitoso.', 2000);
             resetAdminUI(); 
             if(createGameBtn) createGameBtn.disabled = !socket.connected;
@@ -203,7 +211,7 @@ function adminLogout() {
     resetAdminUI();
     if(adminUserEl) adminUserEl.value = 'admin';
     if(adminPassEl) adminPassEl.value = 'password';
-    showScreen('home'); // CORREGIDO
+    showScreen('home');
 }
 
 function updateAdminPlayersAndRanking(playersList = [], currentGameState = null) {
@@ -310,7 +318,7 @@ function displayAdminRoundActionUI(pressesThisRound = []) {
 if (joinGameBtn) {
     joinGameBtn.addEventListener('click', () => {
         if (socket.connected) {
-            showScreen('playerJoin'); // CORREGIDO
+            showScreen('playerJoin');
         } else {
             showMessage('No estás conectado al servidor. Intenta recargar.', 3000, true);
         }
@@ -382,12 +390,35 @@ function updatePlayerScoreUI(playersList = []) {
     }
 }
 
+// FUNCIÓN para mostrar el ranking general a los jugadores al final de la ronda
+function displayPlayerRoundEndRanking(ranking = []) {
+    if (!playerRoundEndRankingListEl || !playerRoundEndRankingSectionEl) return;
+
+    playerRoundEndRankingListEl.innerHTML = '';
+    if (ranking.length === 0) {
+        playerRoundEndRankingListEl.innerHTML = '<li class="text-gray-500 italic">No hay datos de ranking disponibles.</li>';
+    } else {
+        ranking.forEach((player, index) => {
+            const li = document.createElement('li');
+            li.className = `player-ranking-item p-2 rounded ${player.id === clientContext.playerId ? 'bg-blue-100 font-semibold' : 'bg-white'}`;
+            li.innerHTML = `
+                <span class="w-6 text-center">${index + 1}.</span>
+                <span class="flex-grow ml-2 truncate">${player.name}</span>
+                <span class="font-bold text-blue-600">${player.score} pts</span>
+            `;
+            playerRoundEndRankingListEl.appendChild(li);
+        });
+    }
+    playerRoundEndRankingSectionEl.classList.remove('hidden');
+}
+
+
 function playerLeaveGame() {
     showMessage('Saliendo de la partida...', 1500);
     socket.disconnect(); 
     resetClientContext();
     resetPlayerUI();
-    showScreen('home'); // CORREGIDO
+    showScreen('home');
     setTimeout(() => {
         if (!socket.connected) {
             socket.connect();
@@ -411,7 +442,7 @@ socket.on('connect', () => {
         submitJoinGameBtn.disabled = false;
     }
     if (screens.adminPanel && screens.adminPanel.classList.contains('active') && createGameBtn) {
-        createGameBtn.disabled = !!clientContext.gameCode;
+        createGameBtn.disabled = !!clientContext.gameCode; // Deshabilitar si ya hay un juego
     }
 });
 
@@ -430,7 +461,7 @@ socket.on('disconnect', (reason) => {
         else resetPlayerUI();
         
         resetClientContext();
-        showScreen('home'); // CORREGIDO
+        showScreen('home');
     }
 });
 
@@ -507,7 +538,7 @@ socket.on('joinSuccess', (data) => {
     if(currentPlayerNameDisplayEl) currentPlayerNameDisplayEl.textContent = clientContext.playerName;
     updatePlayerScoreUI(data.gameState.players);
 
-    showScreen('playerWaitingRoom'); // CORREGIDO
+    showScreen('playerWaitingRoom');
     updatePlayerWaitingRoomUI(data.gameState.players);
     showMessage(data.message, 3000);
     if(playerGameCodeEl) playerGameCodeEl.value = '';
@@ -533,7 +564,7 @@ socket.on('roundStarted', () => {
         if(adminActionButtonsEl) adminActionButtonsEl.innerHTML = '';
     }
     if (clientContext.playerId) {
-        showScreen('playerGame'); // CORREGIDO
+        showScreen('playerGame');
         if(playerGameScreenTitleEl) playerGameScreenTitleEl.textContent = "¡RONDA ACTIVA!";
         if(playerGameStatusEl) playerGameStatusEl.textContent = '¡Presiona el botón lo más rápido que puedas!';
         if(playerPressBtn) {
@@ -543,10 +574,11 @@ socket.on('roundStarted', () => {
             playerPressBtn.classList.add('bg-green-500', 'hover:bg-green-600');
         }
         if(playerFeedbackEl) playerFeedbackEl.textContent = '';
+        if (playerRoundEndRankingSectionEl) playerRoundEndRankingSectionEl.classList.add('hidden');
     }
 });
 
-socket.on('roundEnded', (data) => {
+socket.on('roundEnded', (data) => { // data: { message, ranking, playerRewarded }
     showMessage(data.message, 4000);
     if (clientContext.isGameAdmin) {
         if(adminRoundResultsEl) adminRoundResultsEl.classList.add('hidden');
@@ -563,14 +595,16 @@ socket.on('roundEnded', (data) => {
         }
         if(playerFeedbackEl) playerFeedbackEl.textContent = '';
         updatePlayerScoreUI(data.ranking);
+        displayPlayerRoundEndRanking(data.ranking);
 
         setTimeout(() => {
             if (screens.playerGame && screens.playerGame.classList.contains('active')) {
-                showScreen('playerWaitingRoom'); // CORREGIDO
+                showScreen('playerWaitingRoom');
                 const waitingMsgEl = document.getElementById('waitingMessage');
                 if(waitingMsgEl) waitingMsgEl.textContent = "Esperando la siguiente ronda...";
+                if (playerRoundEndRankingSectionEl) playerRoundEndRankingSectionEl.classList.add('hidden');
             }
-        }, 4000);
+        }, 6000);
     }
 });
 
@@ -578,20 +612,31 @@ socket.on('gameEnded', (data) => {
     showMessage(data.message + (data.finalRanking ? " Ranking Final:" : ""), 5000);
     if (data.finalRanking) {
         console.log("Ranking Final:", data.finalRanking);
+        if (clientContext.playerId && playerRoundEndRankingSectionEl) {
+            const finalRankingTitle = document.querySelector('#playerRoundEndRankingSection h3');
+            if(finalRankingTitle) finalRankingTitle.textContent = "Ranking Final de la Partida";
+            displayPlayerRoundEndRanking(data.finalRanking);
+            // Mantener playerGameScreen activa para mostrar el ranking final
+            if (screens.playerGame) showScreen('playerGame');
+        }
     }
 
-    if (clientContext.isGameAdmin) resetAdminUI();
-    else if (clientContext.playerId) resetPlayerUI();
-    
-    resetClientContext();
-    showScreen('home'); // CORREGIDO
-    if(adminAccessBtn) adminAccessBtn.disabled = !socket.connected;
-    if(joinGameBtn) joinGameBtn.disabled = !socket.connected;
+    const delayReset = (data.finalRanking && clientContext.playerId) ? 7000 : 0; // Mayor delay si se muestra ranking final
+
+    setTimeout(() => {
+        if (clientContext.isGameAdmin) resetAdminUI();
+        else if (clientContext.playerId) resetPlayerUI();
+        
+        resetClientContext();
+        showScreen('home');
+        if(adminAccessBtn) adminAccessBtn.disabled = !socket.connected;
+        if(joinGameBtn) joinGameBtn.disabled = !socket.connected;
+    }, delayReset);
 });
 
 // --- Inicialización ---
 document.addEventListener('DOMContentLoaded', () => {
-    showScreen('home'); // CORREGIDO
+    showScreen('home');
     if(adminUserEl) adminUserEl.value = 'admin';
     if(adminPassEl) adminPassEl.value = 'password';
 
