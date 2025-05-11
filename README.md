@@ -45,7 +45,7 @@ Sigue estos pasos para poner en marcha la aplicación:
      git clone <URL_DEL_REPOSITORIO>
      cd Primer-Toque
      ```
-     Si descargaste los archivos, descomprímelos en una carpeta llamada `primer-toque-app`.
+     Si descargaste los archivos, descomprímelos en una carpeta llamada `Primer-Toque`.
 
 2. **Configurar y Ejecutar el Backend:**
      * Navega a la carpeta del backend:
