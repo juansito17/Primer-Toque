@@ -1,116 +1,171 @@
 /* frontend/css/style.css */
+
+/* Definición de colores Institucionales como variables CSS */
+:root {
+    --poli-green: #006A4E;
+    --poli-green-dark: #004D38; /* Un tono más oscuro para texto o hover */
+    --poli-green-light: #E6F0EB; /* Un tono muy claro para fondos de mensajes */
+    --poli-orange: #F37021;
+    --poli-orange-dark: #D85C0E; /* Un tono más oscuro para hover */
+    --poli-gray: #58585A;
+    --poli-gray-light: #D1D5DB; /* Gris claro para bordes o texto secundario */
+    --poli-red: #D92D20; /* Para botones de peligro/finalizar */
+    --background-light: #F0F4F8;
+    --text-dark: #1f2937;
+    --text-light: #FFFFFF;
+    --border-color: #E5E7EB;
+}
+
 body {
-    font-family: 'Inter', sans-serif; /* Fuente Inter como se sugiere */
+    font-family: 'Inter', sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background-color: #f0f4f8; /* Un fondo suave */
-    color: #333;
+    background-color: var(--background-light);
+    color: var(--text-dark);
     margin: 0;
     padding: 1rem;
-    box-sizing: border-box; /* Asegura que padding no aumente el tamaño total */
+    box-sizing: border-box;
 }
 
 *, *::before, *::after {
-    box-sizing: inherit; /* Hereda box-sizing del body */
+    box-sizing: inherit;
 }
 
-.screen {
-    display: none; /* Ocultar todas las pantallas por defecto */
-    background-color: white;
-    padding: 2rem;
-    border-radius: 0.75rem; /* Esquinas redondeadas */
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+.main-container { /* Nuevo contenedor para aplicar estilos globales al contenido */
     width: 100%;
-    max-width: 600px; /* Ancho máximo para el contenido principal */
+    max-width: 600px;
+    background-color: var(--text-light); /* Fondo blanco para el contenedor principal */
+    padding: 1.5rem; /* Padding interno */
+    border-radius: 0.75rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+
+.screen {
+    display: none;
+    /* background-color: var(--text-light); Ya no es necesario, se aplica a main-container */
+    padding: 0; /* El padding ahora está en main-container */
+    /* border-radius: 0.75rem; Ya no es necesario */
+    /* box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); Ya no es necesario */
+    width: 100%;
+    /* max-width: 600px; Ya no es necesario */
     text-align: center;
-    margin: 1rem; /* Margen para evitar que toque los bordes en pantallas pequeñas */
+    /* margin: 1rem; Ya no es necesario */
 }
 
 .screen.active {
-    display: block; /* Mostrar la pantalla activa */
+    display: block;
 }
 
 .btn {
     display: inline-block;
     padding: 0.75rem 1.5rem;
     border-radius: 0.5rem;
-    background-color: #3b82f6; /* Azul de Tailwind */
-    color: white;
+    color: var(--text-light);
     font-weight: 600;
     text-align: center;
     cursor: pointer;
     transition: background-color 0.3s ease, transform 0.1s ease;
     border: none;
     margin: 0.5rem;
-    user-select: none; /* Evitar selección de texto en botones */
-}
-
-.btn:hover {
-    background-color: #2563eb;
+    user-select: none;
 }
 
 .btn:active {
-    transform: translateY(1px); /* Pequeño efecto de presión */
+    transform: translateY(1px);
 }
 
 .btn:disabled {
-    background-color: #9ca3af; /* Gris de Tailwind para deshabilitado */
+    background-color: #9ca3af !important; /* Usar !important con cuidado, pero útil para overrides */
+    color: #e5e7eb !important;
     cursor: not-allowed;
     opacity: 0.7;
 }
 
-.btn-secondary {
-    background-color: #6b7280; /* Gris de Tailwind */
+/* Botones con colores Poli */
+.btn-poli-green {
+    background-color: var(--poli-green);
 }
-.btn-secondary:hover {
-    background-color: #4b5563;
-}
-
-.btn-danger {
-    background-color: #ef4444; /* Rojo de Tailwind */
-}
-.btn-danger:hover {
-    background-color: #dc2626;
+.btn-poli-green:hover {
+    background-color: var(--poli-green-dark);
 }
 
-.btn-success {
-    background-color: #22c55e; /* Verde de Tailwind */
+.btn-poli-orange {
+    background-color: var(--poli-orange);
 }
-.btn-success:hover {
-    background-color: #16a34a;
+.btn-poli-orange:hover {
+    background-color: var(--poli-orange-dark);
 }
+
+.btn-poli-gray {
+    background-color: var(--poli-gray);
+}
+.btn-poli-gray:hover {
+    background-color: var(--text-dark); /* Un gris más oscuro al pasar el mouse */
+}
+
+.btn-poli-red {
+    background-color: var(--poli-red);
+}
+.btn-poli-red:hover {
+    background-color: #B91C1C; /* Rojo más oscuro */
+}
+
+
+.btn-player-press {
+    background-color: var(--poli-green); /* Color inicial del botón de presionar */
+    color: var(--text-light);
+}
+.btn-player-press:hover {
+    background-color: var(--poli-green-dark);
+}
+.btn-player-press.pressed { /* Clase para cuando el botón es presionado */
+    background-color: var(--poli-orange);
+}
+.btn-player-press:disabled { /* Cuando está esperando o la ronda terminó */
+    background-color: #9ca3af !important; /* Tailwind gray-400 */
+    color: #e5e7eb !important;
+}
+
 
 .btn-large {
-    padding: 2rem 1rem; /* Ajustado para mejor responsividad */
-    font-size: clamp(1.5rem, 5vw, 2rem); /* Tamaño de fuente adaptable */
-    min-height: 150px; /* Altura mínima para el botón de presionar */
+    padding: 2rem 1rem;
+    font-size: clamp(1.5rem, 5vw, 2rem);
+    min-height: 150px;
     display: flex;
     justify-content: center;
     align-items: center;
     line-height: 1.2;
 }
 
-input[type="text"], input[type="password"] {
+.input-poli { /* Estilo para inputs */
     width: 100%;
     padding: 0.75rem;
-    border: 1px solid #d1d5db; /* Gris claro de Tailwind */
+    border: 1px solid var(--poli-gray-light);
     border-radius: 0.5rem;
     margin-bottom: 1rem;
     box-sizing: border-box;
     font-size: 1rem;
+    color: var(--text-dark);
+}
+.input-poli:focus {
+    outline: none;
+    border-color: var(--poli-green);
+    box-shadow: 0 0 0 2px rgba(0, 106, 78, 0.3); /* Sombra con el verde Poli */
 }
 
+
 h1, h2, h3 {
-    color: #1f2937; /* Gris oscuro de Tailwind */
+    /* color: var(--text-dark); Se define por clase específica ahora */
     margin-bottom: 1rem;
     line-height: 1.3;
 }
-
-h1 { font-size: clamp(1.8rem, 6vw, 2.25rem); } /* text-3xl */
-h2 { font-size: clamp(1.5rem, 5vw, 1.875rem); } /* text-2xl */
-h3 { font-size: clamp(1.25rem, 4vw, 1.5rem); } /* text-xl */
+/* Clases de color para títulos */
+.text-poli-green { color: var(--poli-green); }
+.text-poli-green-dark { color: var(--poli-green-dark); }
+.text-poli-orange { color: var(--poli-orange); }
 
 
 ul {
@@ -120,12 +175,12 @@ ul {
 }
 
 li {
-    background-color: #f9fafb; /* Gris muy claro */
+    background-color: #f9fafb;
     padding: 0.75rem;
     border-radius: 0.375rem;
     margin-bottom: 0.5rem;
-    border: 1px solid #e5e7eb;
-    text-align: left; /* Alineación para items de lista */
+    border: 1px solid var(--border-color);
+    text-align: left;
 }
 
 .player-ranking-item {
@@ -133,50 +188,71 @@ li {
     justify-content: space-between;
     align-items: center;
 }
+.player-ranking-item.highlight-player { /* Para resaltar al jugador actual en el ranking */
+    background-color: var(--poli-green-light);
+    color: var(--poli-green-dark);
+    font-weight: bold;
+}
+
 
 .message-box {
     position: fixed;
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    background-color: #1f2937; /* Default color, can be overridden by JS */
-    color: white;
+    background-color: var(--poli-gray); /* Default color */
+    color: var(--text-light);
     padding: 1rem 1.5rem;
     border-radius: 0.5rem;
     box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     z-index: 1000;
-    display: none; /* Oculto por defecto */
+    display: none;
     opacity: 0;
     transition: opacity 0.5s ease-in-out, background-color 0.3s ease;
-    width: auto; /* Ajustar al contenido */
-    min-width: 250px; /* Ancho mínimo */
-    max-width: 90%; /* Máximo ancho para no ocupar toda la pantalla */
+    width: auto;
+    min-width: 250px;
+    max-width: 90%;
     text-align: center;
 }
+.message-box.error { background-color: var(--poli-red); }
+.message-box.success { background-color: var(--poli-green); }
+.message-box.info { background-color: var(--poli-orange); }
+
 
 .message-box.show {
     display: block;
     opacity: 1;
 }
 
-/* Estilo para el spinner de carga */
-.animate-spin {
+/* Spinner de carga con colores Poli */
+.spinner {
+    width: 48px;
+    height: 48px;
+    border: 5px solid var(--poli-gray-light);
+    border-bottom-color: var(--poli-green);
+    border-radius: 50%;
+    display: inline-block;
+    box-sizing: border-box;
     animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  from {
+  0% {
     transform: rotate(0deg);
   }
-  to {
+  100% {
     transform: rotate(360deg);
   }
 }
 
+/* Fondos de mensajes específicos */
+.bg-poli-green-light { background-color: var(--poli-green-light); }
+
+
 /* Mejoras responsivas */
-@media (max-width: 640px) { /* sm breakpoint de Tailwind */
-    .screen {
-        padding: 1.5rem;
+@media (max-width: 640px) {
+    .main-container {
+        padding: 1rem;
         margin: 0.5rem;
     }
     .btn {
@@ -186,7 +262,7 @@ li {
     .btn-large {
         min-height: 120px;
     }
-    input[type="text"], input[type="password"] {
+    .input-poli {
         font-size: 0.9rem;
     }
 }

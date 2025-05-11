@@ -3,7 +3,7 @@
 // Conexión con el servidor Socket.IO
 // CAMBIA 'localhost' POR LA DIRECCIÓN IP LOCAL DE TU COMPUTADORA SI PRUEBAS EN RED LOCAL
 // Ejemplo: const socket = io('http://192.168.1.105:3000');
-const socket = io('http://192.168.0.178:3000');
+const socket = io('http://localhost:3000');
 
 // Estado del cliente
 let clientContext = {
@@ -13,7 +13,112 @@ let clientContext = {
     adminName: 'Admin',
     playerName: null,
     currentPressesForAdmin: [],
+    soundMuted: false, // Nuevo estado para silenciar sonidos
 };
+
+// --- Configuración de Sonidos con Tone.js ---
+let sounds = {};
+let masterVolume = new Tone.Volume(-10).toDestination(); // Bajar un poco el volumen general
+
+function initializeSounds() {
+    // Envolver la inicialización de sonidos en una interacción del usuario si es necesario
+    // por políticas de autoplay de los navegadores.
+    // Por ahora, intentaremos inicializar directamente.
+    try {
+        sounds.click = new Tone.Synth({
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.01, release: 0.1 }
+        }).connect(masterVolume);
+
+        sounds.playerPress = new Tone.Synth({
+            oscillator: { type: 'triangle8' },
+            envelope: { attack: 0.01, decay: 0.2, sustain: 0.05, release: 0.2 },
+            volume: -6
+        }).connect(masterVolume);
+
+        sounds.roundStart = new Tone.PluckSynth({
+            attackNoise: 1,
+            dampening: 4000,
+            resonance: 0.7,
+            volume: -3
+        }).connect(masterVolume);
+        
+        sounds.roundEndWin = new Tone.Synth({ // Sonido para cuando se gana un punto
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.01, decay: 0.3, sustain: 0.1, release: 0.3 },
+            filter: { type: 'lowpass', frequency: 1000, Q: 1 },
+            filterEnvelope: { attack: 0.05, decay: 0.2, sustain: 0, release: 0.2, baseFrequency: 200, octaves: 2 }
+        }).connect(masterVolume);
+
+        sounds.roundEndLose = new Tone.NoiseSynth({ // Sonido para fin de ronda sin punto o error
+            noise: { type: 'white' },
+            envelope: { attack: 0.005, decay: 0.15, sustain: 0, release: 0.1 },
+            volume: -15
+        }).connect(masterVolume);
+
+        sounds.gameNotification = new Tone.Synth({ // Para notificaciones generales
+            oscillator: { type: 'square' },
+            envelope: { attack: 0.02, decay: 0.1, sustain: 0.2, release: 0.1 },
+            volume: -8
+        }).connect(masterVolume);
+
+        console.log("Sonidos inicializados con Tone.js");
+    } catch (error) {
+        console.error("Error inicializando sonidos con Tone.js:", error);
+        // Deshabilitar sonidos si hay un error
+        clientContext.soundMuted = true; 
+        if(muteSoundBtnTextEl) muteSoundBtnTextEl.textContent = "Sonidos Deshabilitados (Error)";
+        if(muteSoundBtn) muteSoundBtn.disabled = true;
+    }
+}
+
+function playSound(soundName, note = null, duration = '8n') {
+    if (clientContext.soundMuted || !sounds[soundName]) return;
+
+    // Asegurarse de que Tone.js se haya iniciado (puede requerir interacción del usuario)
+    if (Tone.context.state !== 'running') {
+        Tone.start().then(() => {
+            console.log("AudioContext de Tone.js iniciado.");
+            triggerSoundPlayback(soundName, note, duration);
+        }).catch(e => console.error("Error al iniciar AudioContext de Tone.js:", e));
+    } else {
+        triggerSoundPlayback(soundName, note, duration);
+    }
+}
+
+function triggerSoundPlayback(soundName, note, duration) {
+    try {
+        switch (soundName) {
+            case 'click':
+                sounds.click.triggerAttackRelease(note || 'C5', duration);
+                break;
+            case 'playerPress':
+                sounds.playerPress.triggerAttackRelease(note || 'E4', '4n');
+                break;
+            case 'roundStart':
+                sounds.roundStart.triggerAttackRelease(note || 'G4', '2n', Tone.now() + 0.05);
+                break;
+            case 'roundEndWin':
+                sounds.roundEndWin.triggerAttackRelease(note || 'C5', '2n');
+                // Pequeña melodía ascendente
+                // sounds.roundEndWin.triggerAttackRelease("C5", "8n", "+0.0");
+                // sounds.roundEndWin.triggerAttackRelease("E5", "8n", "+0.1");
+                // sounds.roundEndWin.triggerAttackRelease("G5", "8n", "+0.2");
+                break;
+            case 'roundEndLose':
+                sounds.roundEndLose.triggerAttackRelease('4n');
+                break;
+            case 'gameNotification':
+                sounds.gameNotification.triggerAttackRelease(note || 'A4', duration);
+                break;
+            default:
+                console.warn(`Sonido "${soundName}" no definido.`);
+        }
+    } catch (error) {
+        console.error(`Error al reproducir sonido ${soundName}:`, error);
+    }
+}
+
 
 // Elementos del DOM
 const screens = {
@@ -25,11 +130,11 @@ const screens = {
     playerGame: document.getElementById('playerGameScreen'),
 };
 
-// Botones principales de la pantalla de inicio
 const adminAccessBtn = document.getElementById('adminAccessBtn');
 const joinGameBtn = document.getElementById('joinGameBtn');
+const muteSoundBtn = document.getElementById('muteSoundBtn');
+const muteSoundBtnTextEl = document.getElementById('muteSoundBtnText');
 
-// Otros elementos del DOM
 const adminUserEl = document.getElementById('adminUser');
 const adminPassEl = document.getElementById('adminPass');
 const adminNameDisplayEl = document.getElementById('adminNameDisplay');
@@ -58,7 +163,6 @@ const playerCurrentScoreEl = document.getElementById('playerCurrentScore');
 const playerGameScreenTitleEl = document.getElementById('playerGameScreenTitle');
 const submitJoinGameBtn = document.getElementById('submitJoinGameBtn');
 
-// Nuevos elementos para el ranking del jugador al final de la ronda
 const playerRoundEndRankingSectionEl = document.getElementById('playerRoundEndRankingSection');
 const playerRoundEndRankingListEl = document.getElementById('playerRoundEndRankingList');
 
@@ -71,7 +175,6 @@ function showScreen(screenKey) {
     });
     if (screens[screenKey]) {
         screens[screenKey].classList.add('active');
-        // Habilitar/deshabilitar botones según la pantalla y el estado de conexión
         if (screenKey === 'adminLogin' && loginAdminBtn) {
             loginAdminBtn.disabled = !socket.connected;
         } else if (screenKey === 'playerJoin' && submitJoinGameBtn) {
@@ -82,14 +185,22 @@ function showScreen(screenKey) {
     }
 }
 
-function showMessage(message, duration = 3000, isError = false) {
+function showMessage(message, duration = 3000, isError = false, soundType = null) {
     if (!messageBoxEl) return;
     messageBoxEl.textContent = message;
-    messageBoxEl.classList.remove('bg-red-600', 'bg-blue-600');
+    messageBoxEl.classList.remove('error', 'success', 'info'); // Quitar clases de tipo anteriores
     if (isError) {
-        messageBoxEl.classList.add('bg-red-600');
+        messageBoxEl.classList.add('error');
+        playSound(soundType || 'roundEndLose'); // Sonido de error por defecto
     } else {
-        messageBoxEl.classList.add('bg-blue-600');
+        // Determinar clase de éxito o info si es necesario
+        if (message.toLowerCase().includes('éxito') || message.toLowerCase().includes('creada') || message.toLowerCase().includes('unido')) {
+            messageBoxEl.classList.add('success');
+            playSound(soundType || 'gameNotification', 'C5');
+        } else {
+            messageBoxEl.classList.add('info'); // Para mensajes informativos generales
+            playSound(soundType || 'click', 'A4');
+        }
     }
     messageBoxEl.classList.add('show');
     setTimeout(() => {
@@ -99,6 +210,7 @@ function showMessage(message, duration = 3000, isError = false) {
 
 function resetClientContext() {
     clientContext = {
+        ...clientContext, // Mantener soundMuted
         gameCode: null,
         playerId: null,
         isGameAdmin: false,
@@ -129,8 +241,8 @@ function resetPlayerUI() {
     if (playerPressBtn) {
         playerPressBtn.disabled = true;
         playerPressBtn.innerHTML = '<i class="fas fa-hand-pointer mr-3"></i>¡PRESIONA!';
-        playerPressBtn.classList.remove('bg-yellow-500', 'bg-gray-400');
-        playerPressBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+        playerPressBtn.classList.remove('pressed'); // Quitar clase 'pressed'
+        playerPressBtn.classList.add('btn-player-press'); // Asegurar clase base
     }
     if (playerGameCodeEl) playerGameCodeEl.value = '';
     if (playerNameEl) playerNameEl.value = '';
@@ -142,6 +254,7 @@ function resetPlayerUI() {
 // --- Lógica de Administrador ---
 if (adminAccessBtn) {
     adminAccessBtn.addEventListener('click', () => {
+        playSound('click');
         if (socket.connected) {
             showScreen('adminLogin');
         } else {
@@ -152,13 +265,14 @@ if (adminAccessBtn) {
 
 if (loginAdminBtn) {
     loginAdminBtn.addEventListener('click', () => {
+        playSound('click', 'E5');
         const user = adminUserEl.value;
         const pass = adminPassEl.value;
         if (user === 'admin' && pass === 'password') {
             clientContext.adminName = user;
             if (adminNameDisplayEl) adminNameDisplayEl.textContent = clientContext.adminName;
             showScreen('adminPanel');
-            showMessage('Login de administrador exitoso.', 2000);
+            showMessage('Login de administrador exitoso.', 2000, false, 'gameNotification');
             resetAdminUI(); 
             if(createGameBtn) createGameBtn.disabled = !socket.connected;
         } else {
@@ -169,6 +283,7 @@ if (loginAdminBtn) {
 
 if (createGameBtn) {
     createGameBtn.addEventListener('click', () => {
+        playSound('click', 'C5');
         if (socket.connected) {
             socket.emit('adminCreateGame', { adminName: clientContext.adminName });
         } else {
@@ -179,6 +294,7 @@ if (createGameBtn) {
 
 if (startRoundBtn) {
     startRoundBtn.addEventListener('click', () => {
+        // El sonido de inicio de ronda se reproducirá para todos con el evento 'roundStarted'
         if (!clientContext.gameCode) {
             showMessage('Error: No hay código de juego activo.', 3000, true);
             return;
@@ -193,6 +309,7 @@ if (startRoundBtn) {
 
 if (endGameBtn) {
     endGameBtn.addEventListener('click', () => {
+        playSound('click', 'A3');
         if (!clientContext.gameCode) {
             showMessage('Error: No hay partida para finalizar.', 3000, true);
             return;
@@ -206,6 +323,7 @@ if (endGameBtn) {
 }
 
 function adminLogout() {
+    playSound('click');
     showMessage('Cerrando sesión de administrador...', 2000);
     resetClientContext();
     resetAdminUI();
@@ -215,6 +333,7 @@ function adminLogout() {
 }
 
 function updateAdminPlayersAndRanking(playersList = [], currentGameState = null) {
+    // ... (sin cambios en la lógica interna, solo asegurarse que los IDs son correctos)
     if (connectedPlayersListAdminEl) {
         connectedPlayersListAdminEl.innerHTML = '';
         if (playersList.length === 0) {
@@ -223,7 +342,7 @@ function updateAdminPlayersAndRanking(playersList = [], currentGameState = null)
             playersList.forEach(player => {
                 const li = document.createElement('li');
                 li.className = "flex justify-between items-center";
-                li.innerHTML = `<span><i class="fas fa-user mr-2 text-blue-500"></i>${player.name}</span> <span class="text-sm text-gray-600">(Puntos: ${player.score})</span>`;
+                li.innerHTML = `<span><i class="fas fa-user mr-2 text-poli-green"></i>${player.name}</span> <span class="text-sm text-poli-gray">(Puntos: ${player.score})</span>`;
                 connectedPlayersListAdminEl.appendChild(li);
             });
         }
@@ -241,7 +360,7 @@ function updateAdminPlayersAndRanking(playersList = [], currentGameState = null)
                 li.innerHTML = `
                     <span class="font-semibold">${index + 1}.</span>
                     <span class="flex-grow ml-2">${player.name}</span>
-                    <span class="font-bold text-blue-600">${player.score} pts</span>
+                    <span class="font-bold text-poli-orange">${player.score} pts</span>
                 `;
                 rankingListAdminEl.appendChild(li);
             });
@@ -257,6 +376,7 @@ function updateAdminPlayersAndRanking(playersList = [], currentGameState = null)
 }
 
 function displayAdminRoundActionUI(pressesThisRound = []) {
+    // ... (sin cambios en la lógica interna, solo asegurarse que los IDs son correctos)
     clientContext.currentPressesForAdmin = pressesThisRound;
     if(adminRoundResultsEl) adminRoundResultsEl.classList.remove('hidden');
     if(adminActionButtonsEl) adminActionButtonsEl.innerHTML = '';
@@ -270,9 +390,10 @@ function displayAdminRoundActionUI(pressesThisRound = []) {
     if(firstPlayerDisplayEl) firstPlayerDisplayEl.innerHTML = `<b>${firstPress.playerName}</b> presionó primero.`;
 
     const btnSumar = document.createElement('button');
-    btnSumar.className = 'btn btn-success flex-1';
+    btnSumar.className = 'btn btn-poli-green flex-1'; // Usar color Poli
     btnSumar.innerHTML = `<i class="fas fa-plus mr-1"></i>Sumar Punto a ${firstPress.playerName}`;
     btnSumar.onclick = () => {
+        playSound('click', 'G4');
         if (socket.connected) {
             socket.emit('adminHandleAction', {
                 gameCode: clientContext.gameCode,
@@ -285,9 +406,10 @@ function displayAdminRoundActionUI(pressesThisRound = []) {
 
     if (pressesThisRound.length > 1) {
         const btnVerSiguiente = document.createElement('button');
-        btnVerSiguiente.className = 'btn btn-secondary flex-1';
+        btnVerSiguiente.className = 'btn btn-poli-gray flex-1'; // Usar color Poli
         btnVerSiguiente.innerHTML = `<i class="fas fa-forward mr-1"></i>No Sumar / Ver Siguiente`;
         btnVerSiguiente.onclick = () => {
+            playSound('click');
             if (socket.connected) {
                 socket.emit('adminHandleAction', {
                     gameCode: clientContext.gameCode,
@@ -300,9 +422,10 @@ function displayAdminRoundActionUI(pressesThisRound = []) {
     }
 
     const btnSaltar = document.createElement('button');
-    btnSaltar.className = 'btn btn-danger flex-1';
+    btnSaltar.className = 'btn btn-poli-red flex-1'; // Usar color Poli
     btnSaltar.innerHTML = `<i class="fas fa-ban mr-1"></i>Saltar Ronda Completa`;
     btnSaltar.onclick = () => {
+        playSound('click', 'C4');
         if (socket.connected) {
             socket.emit('adminHandleAction', {
                 gameCode: clientContext.gameCode,
@@ -317,6 +440,7 @@ function displayAdminRoundActionUI(pressesThisRound = []) {
 // --- Lógica de Jugador ---
 if (joinGameBtn) {
     joinGameBtn.addEventListener('click', () => {
+        playSound('click');
         if (socket.connected) {
             showScreen('playerJoin');
         } else {
@@ -327,6 +451,7 @@ if (joinGameBtn) {
 
 if (submitJoinGameBtn) {
     submitJoinGameBtn.addEventListener('click', () => {
+        playSound('click', 'E5');
         const gameCode = playerGameCodeEl.value.trim().toUpperCase();
         const playerName = playerNameEl.value.trim();
 
@@ -349,12 +474,14 @@ if (submitJoinGameBtn) {
 
 if (playerPressBtn) {
     playerPressBtn.addEventListener('click', () => {
+        // El sonido de 'playerPress' se reproduce aquí porque es una acción directa del jugador
+        playSound('playerPress'); 
         if (playerPressBtn.disabled) return;
 
         playerPressBtn.disabled = true;
         playerPressBtn.innerHTML = '<i class="fas fa-check mr-2"></i>¡PRESIONADO!';
-        playerPressBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
-        playerPressBtn.classList.add('bg-yellow-500');
+        playerPressBtn.classList.add('pressed'); // Añadir clase para cambio de color
+        
         if(playerFeedbackEl) playerFeedbackEl.textContent = '¡Presionaste! Esperando resultados...';
 
         if (socket.connected) {
@@ -364,6 +491,7 @@ if (playerPressBtn) {
 }
 
 function updatePlayerWaitingRoomUI(playersList = []) {
+    // ... (sin cambios en la lógica interna, solo asegurarse que los IDs son correctos)
     if(connectedPlayersListPlayerEl) {
         connectedPlayersListPlayerEl.innerHTML = '';
         if (playersList.length === 0) {
@@ -371,7 +499,7 @@ function updatePlayerWaitingRoomUI(playersList = []) {
         } else {
             playersList.forEach(player => {
                 const li = document.createElement('li');
-                li.className = "text-gray-700";
+                li.className = "text-poli-gray"; // Usar color Poli
                 li.textContent = player.name + (player.id === clientContext.playerId ? " (Tú)" : "");
                 connectedPlayersListPlayerEl.appendChild(li);
             });
@@ -380,6 +508,7 @@ function updatePlayerWaitingRoomUI(playersList = []) {
 }
 
 function updatePlayerScoreUI(playersList = []) {
+    // ... (sin cambios en la lógica interna, solo asegurarse que los IDs son correctos)
     const me = playersList.find(p => p.id === clientContext.playerId);
     if (me) {
         if(playerCurrentScoreEl) playerCurrentScoreEl.textContent = `${me.score} puntos`;
@@ -390,7 +519,6 @@ function updatePlayerScoreUI(playersList = []) {
     }
 }
 
-// FUNCIÓN para mostrar el ranking general a los jugadores al final de la ronda
 function displayPlayerRoundEndRanking(ranking = []) {
     if (!playerRoundEndRankingListEl || !playerRoundEndRankingSectionEl) return;
 
@@ -400,11 +528,12 @@ function displayPlayerRoundEndRanking(ranking = []) {
     } else {
         ranking.forEach((player, index) => {
             const li = document.createElement('li');
-            li.className = `player-ranking-item p-2 rounded ${player.id === clientContext.playerId ? 'bg-blue-100 font-semibold' : 'bg-white'}`;
+            // Aplicar clase 'highlight-player' si es el jugador actual
+            li.className = `player-ranking-item p-2 rounded ${player.id === clientContext.playerId ? 'highlight-player' : 'bg-white'}`;
             li.innerHTML = `
                 <span class="w-6 text-center">${index + 1}.</span>
                 <span class="flex-grow ml-2 truncate">${player.name}</span>
-                <span class="font-bold text-blue-600">${player.score} pts</span>
+                <span class="font-bold text-poli-orange">${player.score} pts</span>
             `;
             playerRoundEndRankingListEl.appendChild(li);
         });
@@ -414,6 +543,7 @@ function displayPlayerRoundEndRanking(ranking = []) {
 
 
 function playerLeaveGame() {
+    playSound('click', 'C4');
     showMessage('Saliendo de la partida...', 1500);
     socket.disconnect(); 
     resetClientContext();
@@ -430,7 +560,7 @@ function playerLeaveGame() {
 
 socket.on('connect', () => {
     console.log('Conectado al servidor Socket.IO:', socket.id);
-    showMessage('Conectado al servidor.', 1500);
+    showMessage('Conectado al servidor.', 1500, false, 'gameNotification');
 
     if(adminAccessBtn) adminAccessBtn.disabled = false;
     if(joinGameBtn) joinGameBtn.disabled = false;
@@ -442,7 +572,7 @@ socket.on('connect', () => {
         submitJoinGameBtn.disabled = false;
     }
     if (screens.adminPanel && screens.adminPanel.classList.contains('active') && createGameBtn) {
-        createGameBtn.disabled = !!clientContext.gameCode; // Deshabilitar si ya hay un juego
+        createGameBtn.disabled = !!clientContext.gameCode;
     }
 });
 
@@ -477,7 +607,8 @@ socket.on('gameCreated', (data) => {
     if(endGameBtn) endGameBtn.disabled = false;
     if(createGameBtn) createGameBtn.disabled = true;
     updateAdminPlayersAndRanking([], { roundActive: false, players: [] });
-    showMessage(`Nueva partida creada. Código: ${data.gameCode}`, 5000);
+    showMessage(`Nueva partida creada. Código: ${data.gameCode}`, 5000, false, 'gameNotification');
+    playSound('roundEndWin', 'C5'); // Sonido de éxito al crear partida
 });
 
 socket.on('gameStateUpdate', (gameState) => {
@@ -509,7 +640,8 @@ socket.on('gameStateUpdate', (gameState) => {
 
 socket.on('playerPressedNotification', (data) => {
     if (clientContext.isGameAdmin) {
-        showMessage(`${data.pressedBy.playerName} ha presionado.`);
+        // No reproducir sonido aquí, ya que el admin solo ve la notificación.
+        // showMessage(`${data.pressedBy.playerName} ha presionado.`); // Mensaje podría ser redundante
         displayAdminRoundActionUI(data.allPressesThisRound);
     }
 });
@@ -517,10 +649,10 @@ socket.on('playerPressedNotification', (data) => {
 socket.on('adminNextPlayerToJudge', (data) => {
     if (clientContext.isGameAdmin) {
         if (data.remainingPresses && data.remainingPresses.length > 0) {
-            showMessage(`Mostrando siguiente jugador: ${data.remainingPresses[0].playerName}`);
+            showMessage(`Mostrando siguiente jugador: ${data.remainingPresses[0].playerName}`, 2000, false, 'click');
             displayAdminRoundActionUI(data.remainingPresses);
         } else {
-            showMessage('No hay más jugadores que hayan presionado en esta ronda.');
+            showMessage('No hay más jugadores que hayan presionado en esta ronda.', 2000, false, 'roundEndLose');
             if(adminRoundResultsEl) adminRoundResultsEl.classList.add('hidden');
         }
     }
@@ -540,9 +672,8 @@ socket.on('joinSuccess', (data) => {
 
     showScreen('playerWaitingRoom');
     updatePlayerWaitingRoomUI(data.gameState.players);
-    showMessage(data.message, 3000);
-    if(playerGameCodeEl) playerGameCodeEl.value = '';
-    if(playerNameEl) playerNameEl.value = '';
+    showMessage(data.message, 3000, false, 'gameNotification');
+    playSound('roundEndWin', 'E5'); // Sonido de éxito al unirse
 });
 
 socket.on('joinError', (data) => {
@@ -551,6 +682,7 @@ socket.on('joinError', (data) => {
 });
 
 socket.on('roundStarted', () => {
+    playSound('roundStart');
     showMessage('¡La ronda ha comenzado!', 2000);
     clientContext.currentPressesForAdmin = [];
 
@@ -570,8 +702,7 @@ socket.on('roundStarted', () => {
         if(playerPressBtn) {
             playerPressBtn.disabled = false;
             playerPressBtn.innerHTML = '<i class="fas fa-hand-pointer mr-3"></i>¡PRESIONA!';
-            playerPressBtn.classList.remove('bg-yellow-500', 'bg-gray-400');
-            playerPressBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+            playerPressBtn.classList.remove('pressed'); // Quitar clase 'pressed'
         }
         if(playerFeedbackEl) playerFeedbackEl.textContent = '';
         if (playerRoundEndRankingSectionEl) playerRoundEndRankingSectionEl.classList.add('hidden');
@@ -579,7 +710,15 @@ socket.on('roundStarted', () => {
 });
 
 socket.on('roundEnded', (data) => { // data: { message, ranking, playerRewarded }
+    if (data.playerRewarded && data.playerRewarded.id === clientContext.playerId) {
+        playSound('roundEndWin', 'G5'); // Sonido de ganar la ronda para el jugador que ganó
+    } else if (data.playerRewarded) {
+        playSound('roundEndLose', null); // Sonido diferente si otro ganó
+    } else {
+        playSound('roundEndLose', null); // Sonido si nadie ganó o ronda saltada
+    }
     showMessage(data.message, 4000);
+
     if (clientContext.isGameAdmin) {
         if(adminRoundResultsEl) adminRoundResultsEl.classList.add('hidden');
         updateAdminPlayersAndRanking(data.ranking, { roundActive: false, players: data.ranking, gameInProgress: true });
@@ -590,8 +729,7 @@ socket.on('roundEnded', (data) => { // data: { message, ranking, playerRewarded 
         if(playerPressBtn) {
             playerPressBtn.disabled = true;
             playerPressBtn.innerHTML = 'Esperando...';
-            playerPressBtn.classList.remove('bg-green-500', 'hover:bg-green-600', 'bg-yellow-500');
-            playerPressBtn.classList.add('bg-gray-400');
+            playerPressBtn.classList.remove('pressed');
         }
         if(playerFeedbackEl) playerFeedbackEl.textContent = '';
         updatePlayerScoreUI(data.ranking);
@@ -604,11 +742,12 @@ socket.on('roundEnded', (data) => { // data: { message, ranking, playerRewarded 
                 if(waitingMsgEl) waitingMsgEl.textContent = "Esperando la siguiente ronda...";
                 if (playerRoundEndRankingSectionEl) playerRoundEndRankingSectionEl.classList.add('hidden');
             }
-        }, 6000);
+        }, 7000); // Aumentado tiempo para ver ranking
     }
 });
 
 socket.on('gameEnded', (data) => {
+    playSound('roundEndWin', 'A5'); // Sonido de fin de juego
     showMessage(data.message + (data.finalRanking ? " Ranking Final:" : ""), 5000);
     if (data.finalRanking) {
         console.log("Ranking Final:", data.finalRanking);
@@ -616,12 +755,11 @@ socket.on('gameEnded', (data) => {
             const finalRankingTitle = document.querySelector('#playerRoundEndRankingSection h3');
             if(finalRankingTitle) finalRankingTitle.textContent = "Ranking Final de la Partida";
             displayPlayerRoundEndRanking(data.finalRanking);
-            // Mantener playerGameScreen activa para mostrar el ranking final
             if (screens.playerGame) showScreen('playerGame');
         }
     }
 
-    const delayReset = (data.finalRanking && clientContext.playerId) ? 7000 : 0; // Mayor delay si se muestra ranking final
+    const delayReset = (data.finalRanking && clientContext.playerId) ? 8000 : 0;
 
     setTimeout(() => {
         if (clientContext.isGameAdmin) resetAdminUI();
@@ -636,6 +774,39 @@ socket.on('gameEnded', (data) => {
 
 // --- Inicialización ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Inicializar sonidos después de que el DOM esté cargado.
+    // Idealmente, la primera interacción del usuario con la página (ej. un clic)
+    // debería llamar a Tone.start() si aún no se ha iniciado.
+    initializeSounds(); 
+
+    if (muteSoundBtn && muteSoundBtnTextEl) {
+        muteSoundBtn.addEventListener('click', () => {
+            if (Tone.context.state !== 'running') {
+                Tone.start().then(() => { // Intenta iniciar Tone.js si no lo está
+                    toggleMuteState();
+                });
+            } else {
+                toggleMuteState();
+            }
+        });
+    }
+
+    function toggleMuteState() {
+        clientContext.soundMuted = !clientContext.soundMuted;
+        if (clientContext.soundMuted) {
+            masterVolume.mute = true;
+            muteSoundBtnTextEl.textContent = "Activar Sonidos";
+            if(muteSoundBtn.querySelector('i')) muteSoundBtn.querySelector('i').className = 'fas fa-volume-up mr-2';
+            showMessage("Sonidos silenciados.", 1500);
+        } else {
+            masterVolume.mute = false;
+            muteSoundBtnTextEl.textContent = "Silenciar Sonidos";
+            if(muteSoundBtn.querySelector('i')) muteSoundBtn.querySelector('i').className = 'fas fa-volume-mute mr-2';
+            showMessage("Sonidos activados.", 1500);
+            playSound('click'); // Sonido de prueba al activar
+        }
+    }
+    
     showScreen('home');
     if(adminUserEl) adminUserEl.value = 'admin';
     if(adminPassEl) adminPassEl.value = 'password';
