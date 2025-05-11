@@ -1,0 +1,22 @@
+{
+  "name": "primer-toque-backend",
+  "version": "1.0.0",
+  "description": "Backend para el juego Primer Toque",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "socket.io",
+    "express",
+    "real-time",
+    "game"
+  ],
+  "author": "Juan Manuel Peña Usuga",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
