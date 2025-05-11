@@ -43,7 +43,7 @@ Sigue estos pasos para poner en marcha la aplicación:
      Si estás usando Git:
      ```bash
      git clone <URL_DEL_REPOSITORIO>
-     cd primer-toque-app
+     cd Primer-Toque
      ```
      Si descargaste los archivos, descomprímelos en una carpeta llamada `primer-toque-app`.
 
